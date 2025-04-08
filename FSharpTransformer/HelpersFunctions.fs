@@ -33,10 +33,10 @@ let rootMeanSquareNormalize (weights: WeightVector) (input: Vector) : Vector =
         input
         |> Array.map (fun x -> x * x)
         |> Array.average
-        |> fun x -> x + 1e-5
-        |> fun x -> 1.0 / sqrt x
+        |> fun x -> x + 1e-5 // Avoid division by zero by adding a very small number (aka epsilon).
+        |> fun x -> 1.0 / sqrt x // Compute rms & avoid a division in the loop
 
-    (weights, input) ||> Array.map2 (fun w x -> w * (ss * x))
+    (weights, input) ||> Array.map2 (fun w x -> w * (ss * x)) // Compute (output[i] / rms) * weights[i].
 
 // Applies the softmax function to the given input vector (array).
 // Softmax is a function that transforms a vector into a probability distribution,
@@ -57,9 +57,7 @@ let softMax (input: Vector) : Vector =
 // SilU is computed as silu(x) = x*σ(x).
 // σ(x) is the logistic sigmoid, or σ(x) = 1 / 1 + exp(-x). 
 let sigmoidActivation (input:Vector) : Vector =
-    // TODO: Implement this function.
-    raise (System.NotImplementedException("HelpersFunctions sigmoidActivation not implemented"))
-
+    input |> Array.map (fun x -> x * (1.0 / (1.0 + System.Math.Exp(-x))))
 
 // Reshaping function ...
 
