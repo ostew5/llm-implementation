@@ -94,15 +94,13 @@ let flattenComplex (vector: Complex[]): Vector =
 // Applies Rotary Position Embedding to a single pair of coordinates.
 // i.e. for each pair of 2D coordinates, multiply by the corresponding rotationCoefficients.
 let rotateOneHead (rotationCoeffients: Complex[]) (input: Complex[]) : Complex[] =
-    // TODO: Implement this function.
-    raise (System.NotImplementedException("HelpersFunctions rotateOneHead not implemented"))
+    (input, rotationCoeffients) ||> Array.map2 (fun left right -> Complex.Multiply(left, right))
 
 // Applies Rotary Position Embedding to each head of the input vector.
 // You should use the utility functions above to convert the input vector into a series
 // of 2D points, rotate them, and then merge it back to a single vector for each head.
 let rotateVector (rotationCoeffients: Complex[]) (input: MultiHead) : MultiHead = 
-    // TODO: Implement this function.
-    raise (System.NotImplementedException("HelpersFunctions rotateVector not implemented"))
-
-
-
+    input 
+        |> Array.map toComplex
+        |> Array.map (fun x -> (rotationCoeffients, x) ||> rotateOneHead)
+        |> Array.map flattenComplex
