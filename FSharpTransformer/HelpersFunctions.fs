@@ -104,3 +104,10 @@ let rotateVector (rotationCoeffients: Complex[]) (input: MultiHead) : MultiHead 
         |> Array.map toComplex
         |> Array.map (fun x -> (rotationCoeffients, x) ||> rotateOneHead)
         |> Array.map flattenComplex
+
+//HelperFunctionUnitTests
+//  Tests in group: 100
+//   Total Duration: 186 ms
+//
+//Outcomes
+//   100 Passed
