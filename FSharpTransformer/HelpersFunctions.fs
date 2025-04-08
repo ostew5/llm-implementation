@@ -21,8 +21,7 @@ let add (a: Vector) (b: Vector) : Vector =
 // Multiplies two vectors together element-wise, returns a new vector.
 // Both vectors should be of the dimension (array size).
 let elementWiseMultiply (a : Vector) (b: Vector) : Vector =  
-    // TODO: Implement this function.
-    raise (System.NotImplementedException("HelpersFunctions elementWiseMultiply not implemented"))
+    Array.map2 (*) a b
 
 // Performs root mean square (RMS) layer normalization on an input vector.
 // To apply RMS layer normalization, we compute:
