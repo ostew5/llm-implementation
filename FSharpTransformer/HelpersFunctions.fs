@@ -29,8 +29,14 @@ let elementWiseMultiply (a : Vector) (b: Vector) : Vector =
 //   output[i] = (output[i] / rms) * weights[i]
 // Weights is a learnt parameter that is computed during training.
 let rootMeanSquareNormalize (weights: WeightVector) (input: Vector) : Vector =
-    // TODO: Implement this function.
-    raise (System.NotImplementedException("HelpersFunctions rootMeanSquareNormalize not implemented"))
+    let ss = 
+        input
+        |> Array.map (fun x -> x * x)
+        |> Array.average
+        |> fun x -> x + 1e-5
+        |> fun x -> 1.0 / sqrt x
+
+    (weights, input) ||> Array.map2 (fun w x -> w * (ss * x))
 
 // Applies the softmax function to the given input vector (array).
 // Softmax is a function that transforms a vector into a probability distribution,
