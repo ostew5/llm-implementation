@@ -10,8 +10,8 @@ open Types
 // Given matrix w with size m x n, the input vector should be of length m, and
 // the output vector size n.
 let matrixMultiply (weights: WeightMatrix) (input: Vector) : Vector =
-    // TODO: Implement this function.
-    raise (System.NotImplementedException("HelpersFunctions matrixMultiply not implemented"))
+    //weights |> Array.Parallel.map (fun row -> Array.map2 (*) row input |> Array.sum)
+    weights |> Array.map (fun row -> Array.map2 (*) row input |> Array.sum)
 
 // Adds two vectors together element-wise, returns a new vector.
 // Both vectors should be of the dimension (array size).
