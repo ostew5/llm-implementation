@@ -15,9 +15,8 @@ let matrixMultiply (weights: WeightMatrix) (input: Vector) : Vector =
 
 // Adds two vectors together element-wise, returns a new vector.
 // Both vectors should be of the dimension (array size).
-let add (a: Vector) (b: Vector) : Vector =    
-    // TODO: Implement this function.
-    raise (System.NotImplementedException("HelpersFunctions add not implemented"))
+let add (a: Vector) (b: Vector) : Vector =
+    Array.map2 (+) a b
 
 // Multiplies two vectors together element-wise, returns a new vector.
 // Both vectors should be of the dimension (array size).
