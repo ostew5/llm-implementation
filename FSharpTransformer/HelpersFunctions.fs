@@ -37,8 +37,15 @@ let rootMeanSquareNormalize (weights: WeightVector) (input: Vector) : Vector =
 // ranging from 0 to 1. Softmax is computed as:
 //   softmax(xi) = exp(xi) / sum(exp(xj))
 let softMax (input: Vector) : Vector =
-    // TODO: Implement this function.
-    raise (System.NotImplementedException("HelpersFunctions softMax not implemented"))
+    let max = input |> Array.max
+
+    // Compute exp(x - max_val) for each vector element, and accumulate.
+    let aggregatedInput = input |> Array.map (fun x -> System.Math.Exp(x - max))
+    let aggregatedSum = aggregatedInput |> Array.sum
+
+    // Normalize by dividing by the sum, ensuring that all output values
+    // are between 0 and 1.
+    aggregatedInput |> Array.map (fun x -> x / aggregatedSum)
 
 // Applies our activation function: Sigmoid Linear Unit (SilU)
 // SilU is computed as silu(x) = x*σ(x).
