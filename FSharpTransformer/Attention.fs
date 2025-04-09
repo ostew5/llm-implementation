@@ -33,5 +33,6 @@ let attentionForOneHead (keyLookup:int->int->float) (valueLookup:int->int->float
 // Computes attention for all heads in multi-head attention.
 // Hint: Instead of returning multiple vectors, one for each head, this array should be flattened with flattenMultipleHeads().
 let attention  (keyLookup:int->int->int->float) (valueLookup:int->int->int->float) (tokenPosition:int) (query: MultiHead) : Vector =
-    // TODO: Implement this function.
-    raise (System.NotImplementedException("Attention attention not implemented"))
+    query
+        |> Array.mapi (fun i q -> (attentionForOneHead (keyLookup i) (valueLookup i) tokenPosition q))
+        |> flattenMultipleHeads
