@@ -22,8 +22,13 @@ let weightedAttention (attention: Vector) (valueLookup:int->float) : float =
 // Computes attention for one head of multi-head attention, using the query, key and value vectors.
 // This is equivalent to the n_heads loop in the transformer() function in the C# implementation.    
 let attentionForOneHead (keyLookup:int->int->float) (valueLookup:int->int->float) (tokenPosition:int) (query: Vector): Vector =
-    // TODO: Implement this function.
-    raise (System.NotImplementedException("Attention attentionForOneHead not implemented"))
+    let attention =
+        [|0..tokenPosition|]
+            |> Array.map (fun x -> attentionScore query (keyLookup x))
+            |> softMax
+
+    [|0..query.Length - 1|]
+        |> Array.map (fun i -> (weightedAttention attention (fun j -> valueLookup j i))) // weird usage of value lookup function because of the order of operations would prefer to change weightedAttention, but that would fail test cases
 
 // Computes attention for all heads in multi-head attention.
 // Hint: Instead of returning multiple vectors, one for each head, this array should be flattened with flattenMultipleHeads().
