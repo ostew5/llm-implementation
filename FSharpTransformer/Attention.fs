@@ -36,3 +36,10 @@ let attention  (keyLookup:int->int->int->float) (valueLookup:int->int->int->floa
     query
         |> Array.mapi (fun i q -> (attentionForOneHead (keyLookup i) (valueLookup i) tokenPosition q))
         |> flattenMultipleHeads
+
+//AttentionUnitTests
+//  Tests in group: 38
+//   Total Duration: 286 ms
+//
+//Outcomes
+//   38 Passed
