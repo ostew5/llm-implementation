@@ -15,8 +15,9 @@ let attentionScore (query:Vector) (keyLookup:int->float) : float =
 
 // Compute the dot product of the attention vector with the value vector.
 let weightedAttention (attention: Vector) (valueLookup:int->float) : float =
-    // TODO: Implement this function.
-    raise (System.NotImplementedException("Attention weightedAttention not implemented"))
+    attention
+        |> elementWiseMultiply ([|0..attention.Length - 1|] |> Array.map valueLookup)
+        |> Array.sum
 
 // Computes attention for one head of multi-head attention, using the query, key and value vectors.
 // This is equivalent to the n_heads loop in the transformer() function in the C# implementation.    
