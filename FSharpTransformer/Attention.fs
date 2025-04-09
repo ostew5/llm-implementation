@@ -8,8 +8,10 @@ open HelperFunctions
 // i.e. compute the square root of the dot product between query and key vectors.
 // Hint: Use the keyLookup function, as we do not have the key vector directly here.
 let attentionScore (query:Vector) (keyLookup:int->float) : float =    
-    // TODO: Implement this function.
-    raise (System.NotImplementedException("Attention attentionScore not implemented"))
+    query
+        |> elementWiseMultiply ([|0..query.Length - 1|] |> Array.map keyLookup)
+        |> Array.sum
+        |> fun score -> score / System.Math.Sqrt(query.Length)
 
 // Compute the dot product of the attention vector with the value vector.
 let weightedAttention (attention: Vector) (valueLookup:int->float) : float =
