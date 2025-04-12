@@ -11,7 +11,7 @@ open Types
 // the output vector size n.
 let matrixMultiply (weights: WeightMatrix) (input: Vector) : Vector =
     //weights |> Array.Parallel.map (fun row -> Array.map2 (*) row input |> Array.sum)
-    weights |> Array.map (fun row -> Array.map2 (*) row input |> Array.sum)
+    weights |> Array.Parallel.map (fun row -> Array.map2 (*) row input |> Array.sum)
 
 // Adds two vectors together element-wise, returns a new vector.
 // Both vectors should be of the dimension (array size).
@@ -31,7 +31,7 @@ let elementWiseMultiply (a : Vector) (b: Vector) : Vector =
 let rootMeanSquareNormalize (weights: WeightVector) (input: Vector) : Vector =
     let ss = 
         input
-        |> Array.map (fun x -> x * x)
+        |> Array.Parallel.map (fun x -> x * x)
         |> Array.average
         |> fun x -> x + 1e-5 // Avoid division by zero by adding a very small number (aka epsilon).
         |> fun x -> 1.0 / sqrt x // Compute rms & avoid a division in the loop
@@ -46,18 +46,18 @@ let softMax (input: Vector) : Vector =
     let max = input |> Array.max
 
     // Compute exp(x - max_val) for each vector element, and accumulate.
-    let aggregatedInput = input |> Array.map (fun x -> System.Math.Exp(x - max))
+    let aggregatedInput = input |> Array.Parallel.map (fun x -> System.Math.Exp(x - max))
     let aggregatedSum = aggregatedInput |> Array.sum
 
     // Normalize by dividing by the sum, ensuring that all output values
     // are between 0 and 1.
-    aggregatedInput |> Array.map (fun x -> x / aggregatedSum)
+    aggregatedInput |> Array.Parallel.map (fun x -> x / aggregatedSum)
 
 // Applies our activation function: Sigmoid Linear Unit (SilU)
 // SilU is computed as silu(x) = x*σ(x).
 // σ(x) is the logistic sigmoid, or σ(x) = 1 / 1 + exp(-x). 
 let sigmoidActivation (input:Vector) : Vector =
-    input |> Array.map (fun x -> x * (1.0 / (1.0 + System.Math.Exp(-x))))
+    input |> Array.Parallel.map (fun x -> x * (1.0 / (1.0 + System.Math.Exp(-x))))
 
 // Reshaping function ...
 
@@ -82,7 +82,7 @@ let toComplex (vector: Vector) : Complex[] =
     Debug.Assert(vector.Length % 2 = 0)
     vector
     |> Array.chunkBySize 2
-    |> Array.map (fun [|real;imag|] -> Complex(real,imag))
+    |> Array.Parallel.map (fun [|real;imag|] -> Complex(real,imag))
 
 // Converts the list of 2D coordinates back to a single vector after applying
 // Rotary Postion Embedding.
@@ -101,9 +101,9 @@ let rotateOneHead (rotationCoeffients: Complex[]) (input: Complex[]) : Complex[]
 // of 2D points, rotate them, and then merge it back to a single vector for each head.
 let rotateVector (rotationCoeffients: Complex[]) (input: MultiHead) : MultiHead = 
     input 
-        |> Array.map toComplex
-        |> Array.map (fun x -> (rotationCoeffients, x) ||> rotateOneHead)
-        |> Array.map flattenComplex
+        |> Array.Parallel.map toComplex
+        |> Array.Parallel.map (fun x -> (rotationCoeffients, x) ||> rotateOneHead)
+        |> Array.Parallel.map flattenComplex
 
 //HelperFunctionUnitTests
 //  Tests in group: 100

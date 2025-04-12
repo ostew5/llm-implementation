@@ -143,3 +143,14 @@ let tellStory (model: Model) (decoder:Vector->Token) : unit =
 //
 //Outcomes
 //   166 Passed
+
+
+// Optimizations
+
+// used Array.Parallel for all possible instances
+//  Tests in group: 166
+//   Total Duration: 25.1 sec
+//
+//Outcomes
+//   166 Passed
+// Result: 58.1% improvement on execution time
