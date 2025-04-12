@@ -88,14 +88,18 @@ let feedForwardAllLayers (model: Model) (keyCache:MultiHead[][]) (valueCache:Mul
 // The output is the logits for each token, and the key/value cache for all layers for this token.
 // This function roughly equates to the first copy() call and final rmsnorm()/matmul() calls in the C# transformer() method.
 let feedForward (model: Model) (keyCache:MultiHead[][]) (valueCache:MultiHead[][]) (tokenPosition:int) (token:Token) : Vector * MultiHead[] * MultiHead[] =
-    let input = model.tokenEmbedding.[token]
-    feedForwardAllLayers model keyCache valueCache tokenPosition input
+        let output, updatedKeyCache, updatedValueCache = 
+            model.tokenEmbedding.[token] |> fun x -> feedForwardAllLayers model keyCache valueCache tokenPosition x
+
+        (output
+            |> rootMeanSquareNormalize model.normalizeOutputWeights
+            |> matrixMultiply model.tokenEmbedding, updatedKeyCache, updatedValueCache)
 
 // Obtains the logits for the next token, and selects the token to return based on the provided decoder function.
 // You should also return the updated key/value cache.
 let generateNextToken (model: Model) (keyCache:MultiHead[][]) (valueCache:MultiHead[][])  (tokenPosition:int) (token:Token) (decoder:Vector->Token) : Token * MultiHead[] * MultiHead[] =
-    // TODO: Implement this function.
-    raise (System.NotImplementedException("Transformer generateNextToken not implemented"))
+    feedForward model keyCache valueCache tokenPosition token
+        |||> fun logits updatedKeyCache updatedValueCache -> ((decoder logits), updatedKeyCache, updatedValueCache)
 
 // Generates a sequence of tokens using the specified decoder.
 // This function is responsible for appending the cache of key/values for all layers to the "main" key/value cache,
