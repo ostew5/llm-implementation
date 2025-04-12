@@ -12,8 +12,11 @@ open Attention
 // otherwise in the history/cache table at [requested position][layer].
 let createLookupFunction (previousValues:MultiHead[][]) (newValues:MultiHead) (tokenPosition:int) (layer:int): (int -> int -> int -> float) =
     fun headNumber requestedPosition positionWithinHead ->
-        // TODO: Implement this function.
-        raise (System.NotImplementedException("Transformer createLookupFunction not implemented"))
+        if tokenPosition = requestedPosition then
+            newValues.[headNumber].[positionWithinHead]
+        else
+            previousValues.[requestedPosition].[layer].[headNumber].[positionWithinHead]
+            
 
 // Processes one layer of the transformer model. This is equivalent to the first for loop in the C# transformer() function.
 // The parameters you will need are stored in the model.weights array under index layer.
@@ -29,8 +32,43 @@ let createLookupFunction (previousValues:MultiHead[][]) (newValues:MultiHead) (t
 // - Feed-forward network component: Matrix multiply w1 and w3, sigmoid is only applied to w1.
 // - Then the product of these two matrices is multiplied by w2 with second residual connection.
 let feedforwardOneLayer (model: Model) (keyCache:MultiHead[][]) (valueCache:MultiHead[][]) (tokenPosition:int) (input: Vector) (layer: int) : Vector * MultiHead * MultiHead =
-    // TODO: Implement this function.
-    raise (System.NotImplementedException("Transformer feedforwardOneLayer not implemented"))
+    let currentVector = 
+        input |> rootMeanSquareNormalize model.weights.[layer].normalizeInputWeights
+
+    let query = 
+        matrixMultiply model.weights.[layer].wq currentVector
+        |> fun x -> reshapeToMultipleHeads model.headSize x
+        |> fun x -> rotateVector model.rotationCoefficients.[tokenPosition] x
+
+    let key = 
+        matrixMultiply model.weights.[layer].wk currentVector
+        |> fun x -> reshapeToMultipleHeads model.headSize x
+        |> fun x -> rotateVector model.rotationCoefficients.[tokenPosition] x
+
+    let value = 
+        matrixMultiply model.weights.[layer].wv currentVector
+        |> fun x -> reshapeToMultipleHeads model.headSize x
+
+    let keyLookup = createLookupFunction keyCache key tokenPosition layer
+    let valueLookup = createLookupFunction valueCache value tokenPosition layer
+
+    let residual = 
+        attention keyLookup valueLookup tokenPosition query
+        |> matrixMultiply model.weights.[layer].wo
+        |> add input
+    
+    let normal =
+        residual |> rootMeanSquareNormalize model.weights.[layer].normalizeAttentionWeights
+    
+    let hb = 
+        matrixMultiply model.weights.[layer].w1 normal
+        |> sigmoidActivation
+
+    let hb2 = matrixMultiply model.weights.[layer].w3 normal
+
+    ((hb, hb2) ||> elementWiseMultiply
+        |> matrixMultiply model.weights.[layer].w2
+        |> fun x -> add residual x, key, value)
 
 // Returns a new array with the newElement added to array.
 let appendElement (array: 'T[]) (newElement: 'T) : 'T[] =
@@ -50,8 +88,8 @@ let feedForwardAllLayers (model: Model) (keyCache:MultiHead[][]) (valueCache:Mul
 // The output is the logits for each token, and the key/value cache for all layers for this token.
 // This function roughly equates to the first copy() call and final rmsnorm()/matmul() calls in the C# transformer() method.
 let feedForward (model: Model) (keyCache:MultiHead[][]) (valueCache:MultiHead[][]) (tokenPosition:int) (token:Token) : Vector * MultiHead[] * MultiHead[] =
-    // TODO: Implement this function.
-    raise (System.NotImplementedException("Transformer feedForward not implemented"))
+    let input = model.tokenEmbedding.[token]
+    feedForwardAllLayers model keyCache valueCache tokenPosition input
 
 // Obtains the logits for the next token, and selects the token to return based on the provided decoder function.
 // You should also return the updated key/value cache.
