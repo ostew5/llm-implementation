@@ -120,3 +120,10 @@ let generateTokenSequence (model: Model) (decoder:Vector->Token) : string seq =
 let tellStory (model: Model) (decoder:Vector->Token) : unit =
     generateTokenSequence model decoder
     |> printStory
+
+//TransformerTests
+//  Tests in group: 13
+//   Total Duration: 59.4 sec
+//
+//Outcomes
+//   13 Passed
