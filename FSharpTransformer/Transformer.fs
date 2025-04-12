@@ -135,3 +135,11 @@ let tellStory (model: Model) (decoder:Vector->Token) : unit =
 //
 //Outcomes
 //   151 Passed
+
+// added extra transformer tests
+
+//  Tests in group: 166
+//   Total Duration: 1 min
+//
+//Outcomes
+//   166 Passed
