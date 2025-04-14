@@ -15,11 +15,10 @@ let matrixMultiply (weights: WeightMatrix) (input: Vector) : Vector =
 
 // matrixMultiply that uses a mutable output
 let mmatrixMultiply (output: Vector) (weights: WeightMatrix) (input: Vector) =
-    for i in 0 .. weights.Length - 1 do
+    for i in 0 .. output.Length - 1 do
         let mutable sum = 0.0
-        let row = weights.[i]
-        for j in 0 .. row.Length - 1 do
-            sum <- sum + row.[j] * input.[j]
+        for j in 0 .. input.Length - 1 do
+            sum <- sum + weights.[i].[j] * input.[j]
         output.[i] <- sum
 
 // Adds two vectors together element-wise, returns a new vector.
@@ -61,15 +60,14 @@ let rootMeanSquareNormalize (weights: WeightVector) (input: Vector) : Vector =
 let mrootMeanSquareNormalize (output: Vector) (weights: WeightVector) (input: Vector) =
     let mutable temp = 0.0
     for i in 0 .. input.Length - 1 do
-        output.[i] <- input.[i] * input.[i] // use output for computation, this gets overwritten before the function returns
-        temp <- temp + output.[i]
+        temp <- temp + (input.[i] * input.[i])
     
-    temp <- temp / (float output.Length)
+    temp <- temp / (float input.Length)
     temp <- temp + 1e-5
-    temp <- 1.0 / (sqrt temp)
+    temp <- 1.0 / (System.Math.Sqrt temp)
 
-    for i in 0 .. input.Length - 1 do
-        output.[i] <- weights.[i] * (temp * input.[i])
+    for j in 0 .. input.Length - 1 do
+        output.[j] <- weights.[j] * (temp * input.[j])
 
 // Applies the softmax function to the given input vector (array).
 // Softmax is a function that transforms a vector into a probability distribution,
@@ -124,9 +122,13 @@ let reshapeToMultipleHeads (headSize: int)(input: Vector) : MultiHead =
 
 // reshapeToMultipleHeads that uses mutable output
 let mreshapeToMultipleHeads (output: MultiHead) (headSize: int) (input: Vector) =
-    for i in 0..output.Length - 1 do
-        for ii in 0..headSize - 1 do
-            output.[i].[ii] <- input.[headSize * i + ii]
+    let headCount = input.Length / headSize
+    Debug.Assert(output.Length = headCount)
+    for i in 0 .. headCount - 1 do
+        Debug.Assert(output.[i].Length = headSize)
+        for j in 0 .. headSize - 1 do
+            output.[i].[j] <- input.[i * headSize + j]
+
 
 // After computing multi-head attention, this function is responsible for
 // recombining the separate head vectors into a single vector that forms
@@ -196,11 +198,11 @@ let rotateVector (rotationCoeffients: Complex[]) (input: MultiHead) : MultiHead 
         |> Array.Parallel.map flattenComplex
 
 // rotate Vector with a mutable output
-let mrotateVector (output: MultiHead) (rotationCoeffients: Complex[]) (input: MultiHead) = 
+let mrotateVector (output: MultiHead) (rotationCoefficients: Complex[]) (input: MultiHead) = 
     for i in 0 .. input.Length - 1 do
-        let mutable temp: Complex[] = Array.zeroCreate input.[i].Length
+        let mutable temp: Complex[] = Array.zeroCreate (input.[i].Length / 2)
         mtoComplex temp input.[i]
-        mrotateOneHead temp rotationCoeffients temp
+        mrotateOneHead temp rotationCoefficients temp
         mflattenComplex output.[i] temp
 
 //HelperFunctionUnitTests
