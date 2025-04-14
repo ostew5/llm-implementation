@@ -13,15 +13,34 @@ let matrixMultiply (weights: WeightMatrix) (input: Vector) : Vector =
     //weights |> Array.Parallel.map (fun row -> Array.map2 (*) row input |> Array.sum)
     weights |> Array.Parallel.map (fun row -> Array.map2 (*) row input |> Array.sum)
 
+// matrixMultiply that uses a mutable output
+let mmatrixMultiply (output: Vector) (weights: WeightMatrix) (input: Vector) =
+    for i in 0 .. weights.Length - 1 do
+        let mutable sum = 0.0
+        let row = weights.[i]
+        for j in 0 .. row.Length - 1 do
+            sum <- sum + row.[j] * input.[j]
+        output.[i] <- sum
+
 // Adds two vectors together element-wise, returns a new vector.
 // Both vectors should be of the dimension (array size).
 let add (a: Vector) (b: Vector) : Vector =
     Array.map2 (+) a b
 
+// add that uses a mutable output
+let madd (output: Vector) (a: Vector) (b: Vector) =
+    for i in 0 .. a.Length - 1 do
+        output.[i] <- a.[i] + b.[i]
+
 // Multiplies two vectors together element-wise, returns a new vector.
 // Both vectors should be of the dimension (array size).
 let elementWiseMultiply (a : Vector) (b: Vector) : Vector =  
     Array.map2 (*) a b
+
+// elementWiseMultiply that uses a mutable output
+let melementWiseMultiply (output: Vector) (a: Vector) (b: Vector) =
+    for i in 0 .. a.Length - 1 do
+        output.[i] <- a.[i] * b.[i]
 
 // Performs root mean square (RMS) layer normalization on an input vector.
 // To apply RMS layer normalization, we compute:
@@ -38,6 +57,20 @@ let rootMeanSquareNormalize (weights: WeightVector) (input: Vector) : Vector =
 
     (weights, input) ||> Array.map2 (fun w x -> w * (ss * x)) // Compute (output[i] / rms) * weights[i].
 
+// mrootMeanSquareNormalize that uses a mutable output
+let mrootMeanSquareNormalize (output: Vector) (weights: WeightVector) (input: Vector) =
+    let mutable temp = 0.0
+    for i in 0 .. input.Length - 1 do
+        output.[i] <- input.[i] * input.[i] // use output for computation, this gets overwritten before the function returns
+        temp <- temp + output.[i]
+    
+    temp <- temp / (float output.Length)
+    temp <- temp + 1e-5
+    temp <- 1.0 / (sqrt temp)
+
+    for i in 0 .. input.Length - 1 do
+        output.[i] <- weights.[i] * (temp * input.[i])
+
 // Applies the softmax function to the given input vector (array).
 // Softmax is a function that transforms a vector into a probability distribution,
 // ranging from 0 to 1. Softmax is computed as:
@@ -53,11 +86,32 @@ let softMax (input: Vector) : Vector =
     // are between 0 and 1.
     aggregatedInput |> Array.Parallel.map (fun x -> x / aggregatedSum)
 
+// softMax that uses a mutable output
+let msoftMax (output: Vector) (input: Vector) =
+    let mutable max = input.[0]
+
+    for i in 1 .. input.Length - 1 do
+        if max < input.[i] then
+            max <- input[i]
+
+    let mutable sum = 0.0
+    for i in 0 .. input.Length - 1 do
+        output.[i] <- System.Math.Exp(input.[i] - max)
+        sum <- sum + output.[i]
+
+    for i in 0 .. input.Length - 1 do
+        output.[i] <- output.[i] / sum
+
 // Applies our activation function: Sigmoid Linear Unit (SilU)
 // SilU is computed as silu(x) = x*σ(x).
 // σ(x) is the logistic sigmoid, or σ(x) = 1 / 1 + exp(-x). 
 let sigmoidActivation (input:Vector) : Vector =
     input |> Array.Parallel.map (fun x -> x * (1.0 / (1.0 + System.Math.Exp(-x))))
+
+// sigmoidActivation that uses mutable output
+let msigmoidActivation (output: Vector) (input: Vector) =
+    for i in 0 .. input.Length - 1 do
+        output.[i] <- input.[i] * (1.0 / (1.0 + System.Math.Exp(-input.[i])))
 
 // Reshaping function ...
 
@@ -68,11 +122,26 @@ let reshapeToMultipleHeads (headSize: int)(input: Vector) : MultiHead =
     Debug.Assert(input.Length % headSize = 0)
     input |> Array.chunkBySize headSize
 
+// reshapeToMultipleHeads that uses mutable output
+let mreshapeToMultipleHeads (output: MultiHead) (headSize: int) (input: Vector) =
+    for i in 0..output.Length - 1 do
+        for ii in 0..headSize - 1 do
+            output.[i].[ii] <- input.[headSize * i + ii]
+
 // After computing multi-head attention, this function is responsible for
 // recombining the separate head vectors into a single vector that forms
 // the output for the layer.
 let flattenMultipleHeads (input:MultiHead) : Vector =
     input |> Array.concat
+
+// flattenMultipleHeads 
+let mflattenMultipleHeads (output: Vector) (input: MultiHead) =
+    let mutable index = 0
+    for i = 0 to input.Length - 1 do
+        let row = input.[i]
+        for ii = 0 to row.Length - 1 do
+            output.[index] <- row.[ii]
+            index <- index + 1
 
 // Converts the vector for each head into a series of two-dimensional positions
 // suitable for Rotary Position Embedding (RoPE). The two dimensions are represented
@@ -84,10 +153,26 @@ let toComplex (vector: Vector) : Complex[] =
     |> Array.chunkBySize 2
     |> Array.Parallel.map (fun [|real;imag|] -> Complex(real,imag))
 
+// toComplex with a mutable output
+let mtoComplex (output: Complex[]) (vector: Vector) =
+    Debug.Assert(vector.Length % 2 = 0)
+    let len = vector.Length / 2
+    for i = 0 to len - 1 do
+        let real = vector.[2 * i]
+        let imag = vector.[2 * i + 1]
+        output.[i] <- Complex(real, imag)
+
 // Converts the list of 2D coordinates back to a single vector after applying
 // Rotary Postion Embedding.
 let flattenComplex (vector: Complex[]): Vector =    
     vector |> Array.collect (fun c -> [|c.Real; c.Imaginary|])
+
+// flattenComplex with a mutable output
+let mflattenComplex (output: Vector) (vector: Complex[]) =
+    for i = 0 to vector.Length - 1 do
+        let c = vector.[i]
+        output.[2 * i]     <- c.Real
+        output.[2 * i + 1] <- c.Imaginary
 
 // Rotation functions ...
 
@@ -95,6 +180,11 @@ let flattenComplex (vector: Complex[]): Vector =
 // i.e. for each pair of 2D coordinates, multiply by the corresponding rotationCoefficients.
 let rotateOneHead (rotationCoeffients: Complex[]) (input: Complex[]) : Complex[] =
     (input, rotationCoeffients) ||> Array.map2 (fun left right -> Complex.Multiply(left, right))
+
+// rotateOneHead with a mutable output
+let mrotateOneHead (output: Complex[]) (rotationCoefficients: Complex[]) (input: Complex[]) =
+    for i = 0 to input.Length - 1 do
+        output.[i] <- Complex.Multiply(input.[i], rotationCoefficients.[i])
 
 // Applies Rotary Position Embedding to each head of the input vector.
 // You should use the utility functions above to convert the input vector into a series
@@ -104,6 +194,14 @@ let rotateVector (rotationCoeffients: Complex[]) (input: MultiHead) : MultiHead 
         |> Array.Parallel.map toComplex
         |> Array.Parallel.map (fun x -> (rotationCoeffients, x) ||> rotateOneHead)
         |> Array.Parallel.map flattenComplex
+
+// rotate Vector with a mutable output
+let mrotateVector (output: MultiHead) (rotationCoeffients: Complex[]) (input: MultiHead) = 
+    for i in 0 .. input.Length - 1 do
+        let mutable temp: Complex[] = Array.zeroCreate input.[i].Length
+        mtoComplex temp input.[i]
+        mrotateOneHead temp rotationCoeffients temp
+        mflattenComplex output.[i] temp
 
 //HelperFunctionUnitTests
 //  Tests in group: 100
