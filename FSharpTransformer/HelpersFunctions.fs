@@ -3,7 +3,7 @@
 open System.Diagnostics
 open System.Numerics
 open Types
-open System.Threading.Tasks
+open System
 
 // Vector operations ...
 
@@ -16,12 +16,11 @@ let matrixMultiply (weights: WeightMatrix) (input: Vector) : Vector =
 
 // matrixMultiply that uses a mutable output
 let mmatrixMultiply (output: Vector) (weights: WeightMatrix) (input: Vector) =
-    Parallel.For(0, output.Length, fun i ->
+    for i in 0 .. output.Length - 1 do
         let mutable sum = 0.0
         for j in 0 .. input.Length - 1 do
             sum <- sum + weights.[i].[j] * input.[j]
         output.[i] <- sum
-    ) |> ignore
 
 // Adds two vectors together element-wise, returns a new vector.
 // Both vectors should be of the dimension (array size).
@@ -30,9 +29,8 @@ let add (a: Vector) (b: Vector) : Vector =
 
 // add that uses a mutable output
 let madd (output: Vector) (a: Vector) (b: Vector) =
-    Parallel.For(0, output.Length, fun i ->
+    for i in 0 .. a.Length - 1 do
         output.[i] <- a.[i] + b.[i]
-    ) |> ignore
 
 // Multiplies two vectors together element-wise, returns a new vector.
 // Both vectors should be of the dimension (array size).
@@ -41,9 +39,8 @@ let elementWiseMultiply (a : Vector) (b: Vector) : Vector =
 
 // elementWiseMultiply that uses a mutable output
 let melementWiseMultiply (output: Vector) (a: Vector) (b: Vector) =
-    Parallel.For(0, output.Length, fun i ->
+    for i in 0 .. a.Length - 1 do
         output.[i] <- a.[i] * b.[i]
-    ) |> ignore
 
 // Performs root mean square (RMS) layer normalization on an input vector.
 // To apply RMS layer normalization, we compute:
@@ -88,9 +85,8 @@ let msoftMax (output: Vector) (input: Vector) =
         output.[i] <- System.Math.Exp(input.[i] - max)
         sum <- sum + output.[i]
 
-    Parallel.For(0, output.Length, fun i ->
+    for i in 0 .. input.Length - 1 do
         output.[i] <- output.[i] / sum
-    ) |> ignore
 
 // Applies our activation function: Sigmoid Linear Unit (SilU)
 // SilU is computed as silu(x) = x*σ(x).
@@ -100,9 +96,8 @@ let sigmoidActivation (input:Vector) : Vector =
 
 // sigmoidActivation that uses mutable output
 let msigmoidActivation (output: Vector) (input: Vector) =
-    Parallel.For(0, output.Length, fun i ->
+    for i in 0 .. input.Length - 1 do
         output.[i] <- input.[i] * (1.0 / (1.0 + System.Math.Exp(-input.[i])))
-    ) |> ignore
 
 // Reshaping function ...
 
@@ -112,6 +107,16 @@ let msigmoidActivation (output: Vector) (input: Vector) =
 let reshapeToMultipleHeads (headSize: int)(input: Vector) : MultiHead = 
     Debug.Assert(input.Length % headSize = 0)
     input |> Array.chunkBySize headSize
+
+// reshapeToMultipleHeads that uses mutable output
+let mreshapeToMultipleHeads (output: MultiHead) (headSize: int) (input: Vector) =
+    let headCount = input.Length / headSize
+    Debug.Assert(output.Length = headCount)
+    for i in 0 .. headCount - 1 do
+        Debug.Assert(output.[i].Length = headSize)
+        for j in 0 .. headSize - 1 do
+            output.[i].[j] <- input.[i * headSize + j]
+
 
 // After computing multi-head attention, this function is responsible for
 // recombining the separate head vectors into a single vector that forms
@@ -168,9 +173,8 @@ let rotateOneHead (rotationCoeffients: Complex[]) (input: Complex[]) : Complex[]
 
 // rotateOneHead with a mutable output
 let mrotateOneHead (output: Complex[]) (rotationCoefficients: Complex[]) (input: Complex[]) =
-    Parallel.For(0, output.Length, fun i ->
+    for i = 0 to input.Length - 1 do
         output.[i] <- Complex.Multiply(input.[i], rotationCoefficients.[i])
-    ) |> ignore
 
 // Applies Rotary Position Embedding to each head of the input vector.
 // You should use the utility functions above to convert the input vector into a series
@@ -183,12 +187,11 @@ let rotateVector (rotationCoeffients: Complex[]) (input: MultiHead) : MultiHead 
 
 // rotate Vector with a mutable output
 let mrotateVector (output: MultiHead) (rotationCoefficients: Complex[]) (input: MultiHead) = 
-    Parallel.For(0, input.Length, fun i ->
+    for i in 0 .. input.Length - 1 do
         let mutable temp: Complex[] = Array.zeroCreate (input.[i].Length / 2)
         mtoComplex temp input.[i]
         mrotateOneHead temp rotationCoefficients temp
         mflattenComplex output.[i] temp
-    ) |> ignore
 
 //HelperFunctionUnitTests
 //  Tests in group: 100
