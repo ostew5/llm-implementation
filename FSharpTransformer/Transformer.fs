@@ -81,7 +81,6 @@ type MutableVars = {
 
 // feedforwardOneLayer that uses mutable functions
 let mfeedforwardOneLayer (model: Model) (keyCache:MultiHead[][]) (valueCache:MultiHead[][]) (tokenPosition:int) (input: Vector) (layer: int) (mut: MutableVars) : Vector * MultiHead * MultiHead =
-    // allocate all required memory rather than asking system for memory repeatedly
 
     let mutable currentVector = 
         input |> rootMeanSquareNormalize model.weights.[layer].normalizeInputWeights
