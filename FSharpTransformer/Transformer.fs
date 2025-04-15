@@ -5,9 +5,6 @@ open IO
 open HelperFunctions
 open Attention
 
-// to include AsSpan()
-open System
-
 
 // Return a new function that takes the head number, requested position, and position within head, returning the key/value
 // from [head number][postion within head] in either the newValues matrix if the token position is the current position,
@@ -72,57 +69,55 @@ let feedforwardOneLayer (model: Model) (keyCache:MultiHead[][]) (valueCache:Mult
         |> matrixMultiply model.weights.[layer].w2
         |> fun x -> add residual x, key, value)
 
+type MutableVars = {
+    mutable wqProduct : Vector
+    mutable wkProduct : Vector
+    mutable wvProduct : Vector
+    mutable residual : Vector
+    mutable hb : Vector
+    mutable hb2 : Vector
+    mutable xb : Vector
+}
+
 // feedforwardOneLayer that uses mutable functions
-let mfeedforwardOneLayer (model: Model) (keyCache:MultiHead[][]) (valueCache:MultiHead[][]) (tokenPosition:int) (input: Vector) (layer: int) : Vector * MultiHead * MultiHead =
+let mfeedforwardOneLayer (model: Model) (keyCache:MultiHead[][]) (valueCache:MultiHead[][]) (tokenPosition:int) (input: Vector) (layer: int) (mut: MutableVars) : Vector * MultiHead * MultiHead =
     // allocate all required memory rather than asking system for memory repeatedly
-    let buffer = Array.zeroCreate<float> ((input.Length * 5) + (model.weights.[layer].w1.Length * 2))
-    let span = buffer.AsSpan()
 
     let mutable currentVector = 
         input |> rootMeanSquareNormalize model.weights.[layer].normalizeInputWeights
+    
+    mmatrixMultiply mut.wqProduct model.weights.[layer].wq currentVector
 
-    let mutable wqProduct = Array.zeroCreate input.Length
-    mmatrixMultiply wqProduct model.weights.[layer].wq currentVector
-
-    let mutable query = reshapeToMultipleHeads model.headSize wqProduct
+    let mutable query = reshapeToMultipleHeads model.headSize mut.wqProduct
     mrotateVector query model.rotationCoefficients.[tokenPosition] query
+    mmatrixMultiply mut.wkProduct model.weights.[layer].wk currentVector
 
-    let mutable wkProduct = Array.zeroCreate input.Length
-    mmatrixMultiply wkProduct model.weights.[layer].wk currentVector
-
-    let mutable key = reshapeToMultipleHeads model.headSize wkProduct
+    let mutable key = reshapeToMultipleHeads model.headSize mut.wkProduct
     mrotateVector key model.rotationCoefficients.[tokenPosition] key
+    mmatrixMultiply mut.wvProduct model.weights.[layer].wv currentVector
 
-    let mutable wvProduct = Array.zeroCreate input.Length
-    mmatrixMultiply wvProduct model.weights.[layer].wv currentVector
-
-    let mutable value = reshapeToMultipleHeads model.headSize wvProduct
+    let mutable value = reshapeToMultipleHeads model.headSize mut.wvProduct
 
     let keyLookup = createLookupFunction keyCache key tokenPosition layer
     let valueLookup = createLookupFunction valueCache value tokenPosition layer
 
     let attentionResult = attention keyLookup valueLookup tokenPosition query
-    let mutable residual = Array.zeroCreate input.Length
-    mmatrixMultiply residual model.weights.[layer].wo attentionResult
-    madd residual input residual
+    mmatrixMultiply mut.residual model.weights.[layer].wo attentionResult
+    madd mut.residual input mut.residual
     
     let normal =
-        residual |> rootMeanSquareNormalize model.weights.[layer].normalizeAttentionWeights
+        mut.residual |> rootMeanSquareNormalize model.weights.[layer].normalizeAttentionWeights
     
-    let mutable hb = Array.zeroCreate model.weights.[layer].w1.Length
-    mmatrixMultiply hb model.weights.[layer].w1 normal
-    msigmoidActivation hb hb
+    mmatrixMultiply mut.hb model.weights.[layer].w1 normal
+    msigmoidActivation mut.hb mut.hb
+    
+    mmatrixMultiply mut.hb2 model.weights.[layer].w3 normal
+    melementWiseMultiply mut.hb mut.hb mut.hb2
 
-    let mutable hb2 = Array.zeroCreate model.weights.[layer].w1.Length
-    mmatrixMultiply hb2 model.weights.[layer].w3 normal
+    mmatrixMultiply mut.xb model.weights.[layer].w2 mut.hb
+    madd mut.xb mut.xb mut.residual
 
-    melementWiseMultiply hb hb hb2
-
-    let mutable xb = Array.zeroCreate input.Length
-    mmatrixMultiply xb model.weights.[layer].w2 hb
-    madd xb xb residual
-
-    (xb, key, value)
+    (mut.xb, key, value)
 
 // Returns a new array with the newElement added to array.
 let appendElement (array: 'T[]) (newElement: 'T) : 'T[] =
@@ -131,10 +126,19 @@ let appendElement (array: 'T[]) (newElement: 'T) : 'T[] =
 // Feeds an input vector through all layers of the transformer.
 // This function is also responsible for updating the key/value cache that is used to retrieve the vectors in later layers.
 // The cache is "updated" for each layer by appending to the end of the array representing the cache.
-let feedForwardAllLayers (model: Model) (keyCache:MultiHead[][]) (valueCache:MultiHead[][]) (tokenPosition:int) (input:Vector)  : Vector * MultiHead[] * MultiHead[] =
+let feedForwardAllLayers (model: Model) (keyCache:MultiHead[][]) (valueCache:MultiHead[][]) (tokenPosition:int) (input:Vector) : Vector * MultiHead[] * MultiHead[] =    
+    let mutable mut: MutableVars = {
+        wqProduct = Array.zeroCreate model.weights.[0].wo.[0].Length
+        wkProduct = Array.zeroCreate model.weights.[0].wo.[0].Length
+        wvProduct = Array.zeroCreate model.weights.[0].wo.[0].Length
+        residual = Array.zeroCreate model.weights.[0].wo.[0].Length
+        hb = Array.zeroCreate model.weights.[0].w1.Length
+        hb2 = Array.zeroCreate model.weights.[0].w1.Length
+        xb = Array.zeroCreate model.weights.[0].wo.[0].Length
+    }
     // Use List.fold to process each layer, accumulating the input with each.
     let Folder (input, previousKeys, previousValues) layer =
-        let (output, keys, values) = mfeedforwardOneLayer model keyCache valueCache tokenPosition input layer
+        let (output, keys, values) = mfeedforwardOneLayer model keyCache valueCache tokenPosition input layer mut
         (output, appendElement previousKeys keys,  appendElement previousValues values)
     List.fold Folder (input, Array.empty, Array.empty) [0 .. model.numberOfLayers-1]
 
@@ -142,6 +146,7 @@ let feedForwardAllLayers (model: Model) (keyCache:MultiHead[][]) (valueCache:Mul
 // The output is the logits for each token, and the key/value cache for all layers for this token.
 // This function roughly equates to the first copy() call and final rmsnorm()/matmul() calls in the C# transformer() method.
 let feedForward (model: Model) (keyCache:MultiHead[][]) (valueCache:MultiHead[][]) (tokenPosition:int) (token:Token) : Vector * MultiHead[] * MultiHead[] =
+
     let output, updatedKeyCache, updatedValueCache = 
         model.tokenEmbedding.[token] |> fun x -> feedForwardAllLayers model keyCache valueCache tokenPosition x
 
