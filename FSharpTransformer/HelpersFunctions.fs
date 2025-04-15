@@ -11,8 +11,8 @@ open System
 // Given matrix w with size m x n, the input vector should be of length m, and
 // the output vector size n.
 let matrixMultiply (weights: WeightMatrix) (input: Vector) : Vector =
-    //weights |> Array.Parallel.map (fun row -> Array.map2 (*) row input |> Array.sum)
-    weights |> Array.Parallel.map (fun row -> Array.map2 (*) row input |> Array.sum)
+    //weights |> Array.map (fun row -> Array.map2 (*) row input |> Array.sum)
+    weights |> Array.map (fun row -> Array.map2 (*) row input |> Array.sum)
 
 // matrixMultiply that uses a mutable output
 let mmatrixMultiply (output: Vector) (weights: WeightMatrix) (input: Vector) =
@@ -50,7 +50,7 @@ let melementWiseMultiply (output: Vector) (a: Vector) (b: Vector) =
 let rootMeanSquareNormalize (weights: WeightVector) (input: Vector) : Vector =
     let ss = 
         input
-        |> Array.Parallel.map (fun x -> x * x)
+        |> Array.map (fun x -> x * x)
         |> Array.average
         |> fun x -> x + 1e-5 // Avoid division by zero by adding a very small number (aka epsilon).
         |> fun x -> 1.0 / sqrt x // Compute rms & avoid a division in the loop
@@ -65,12 +65,12 @@ let softMax (input: Vector) : Vector =
     let max = input |> Array.max
 
     // Compute exp(x - max_val) for each vector element, and accumulate.
-    let aggregatedInput = input |> Array.Parallel.map (fun x -> System.Math.Exp(x - max))
+    let aggregatedInput = input |> Array.map (fun x -> System.Math.Exp(x - max))
     let aggregatedSum = aggregatedInput |> Array.sum
 
     // Normalize by dividing by the sum, ensuring that all output values
     // are between 0 and 1.
-    aggregatedInput |> Array.Parallel.map (fun x -> x / aggregatedSum)
+    aggregatedInput |> Array.map (fun x -> x / aggregatedSum)
 
 // softMax that uses a mutable output
 let msoftMax (output: Vector) (input: Vector) =
@@ -92,7 +92,7 @@ let msoftMax (output: Vector) (input: Vector) =
 // SilU is computed as silu(x) = x*σ(x).
 // σ(x) is the logistic sigmoid, or σ(x) = 1 / 1 + exp(-x). 
 let sigmoidActivation (input:Vector) : Vector =
-    input |> Array.Parallel.map (fun x -> x * (1.0 / (1.0 + System.Math.Exp(-x))))
+    input |> Array.map (fun x -> x * (1.0 / (1.0 + System.Math.Exp(-x))))
 
 // sigmoidActivation that uses mutable output
 let msigmoidActivation (output: Vector) (input: Vector) =
@@ -141,7 +141,7 @@ let toComplex (vector: Vector) : Complex[] =
     Debug.Assert(vector.Length % 2 = 0)
     vector
     |> Array.chunkBySize 2
-    |> Array.Parallel.map (fun [|real;imag|] -> Complex(real,imag))
+    |> Array.map (fun [|real;imag|] -> Complex(real,imag))
 
 // toComplex with a mutable output
 let mtoComplex (output: Complex[]) (vector: Vector) =
@@ -181,9 +181,9 @@ let mrotateOneHead (output: Complex[]) (rotationCoefficients: Complex[]) (input:
 // of 2D points, rotate them, and then merge it back to a single vector for each head.
 let rotateVector (rotationCoeffients: Complex[]) (input: MultiHead) : MultiHead = 
     input 
-        |> Array.Parallel.map toComplex
-        |> Array.Parallel.map (fun x -> (rotationCoeffients, x) ||> rotateOneHead)
-        |> Array.Parallel.map flattenComplex
+        |> Array.map toComplex
+        |> Array.map (fun x -> (rotationCoeffients, x) ||> rotateOneHead)
+        |> Array.map flattenComplex
 
 // rotate Vector with a mutable output
 let mrotateVector (output: MultiHead) (rotationCoefficients: Complex[]) (input: MultiHead) = 
